@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +36,30 @@ public class TransactionService {
 
     public String issueBook(int cardId, int bookId) throws Exception {
         //check whether bookId and cardId already exist
+        Book book=bookRepository5.findById(bookId).get();
+        Card card=cardRepository5.findById(cardId).get();
+        Transaction transaction=new Transaction();
+        transaction.setBook(book);
+        transaction.setCard(card);
+        transaction.setIssueOperation(true);
+
+
+        if(book==null || !book.isAvailable()){
+            transaction.setTransactionStatus(TransactionStatus.FAILED);
+            transactionRepository5.save(transaction);
+            throw new Exception("Book is either unavailable or not presentBooks is either not available or there is no book present");
+        }
+        if(card==null || card.getCardStatus().equals(CardStatus.DEACTIVATED)){
+            transaction.setTransactionStatus(TransactionStatus.FAILED);
+            transactionRepository5.save(transaction);
+            throw new Exception("Card is invalid");
+        }
+        if(card.getBooks().size()>=max_allowed_books){
+            transaction.setTransactionStatus(TransactionStatus.FAILED);
+            transactionRepository5.save(transaction);
+            throw new Exception("Book limit has reached for this card");
+
+        }
         //conditions required for successful transaction of issue book:
         //1. book is present and available
         // If it fails: throw new Exception("Book is either unavailable or not present");
@@ -45,8 +70,18 @@ public class TransactionService {
         //If the transaction is successful, save the transaction to the list of transactions and return the id
 
         //Note that the error message should match exactly in all cases
+       List<Book> bookList=new ArrayList<>(card.getBooks());
+        bookList.add(book);
+        book.setAvailable(false);
+        book.setCard(card);
+        bookRepository5.updateBook(book);
+        card.setBooks(bookList);
+        transaction.setTransactionStatus(TransactionStatus.SUCCESSFUL);
+        transactionRepository5.save(transaction);
 
-       return null; //return transactionId instead
+
+
+       return transaction.getTransactionId(); //return transactionId instead
     }
 
     public Transaction returnBook(int cardId, int bookId) throws Exception{
@@ -56,9 +91,15 @@ public class TransactionService {
 
         //for the given transaction calculate the fine amount considering the book has been returned exactly when this function is called
         //make the book available for other users
+
+        Book book=bookRepository5.findById(bookId).get();
+        Card card=cardRepository5.findById(cardId).get();
+        Transaction transaction1 =new Transaction();
+        transaction1.setBook(book);
+        book.setAvailable(true);
         //make a new transaction for return book which contains the fine amount as well
 
-        Transaction returnBookTransaction  = null;
+        Transaction returnBookTransaction =null ;
         return returnBookTransaction; //return the transaction after updating all details
     }
 }
